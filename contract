@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DVSwap — AI Escrow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#060810;--s1:#0c0f1a;--s2:#111627;
+  --border:#1c2238;--border2:#252d48;
+  --blue:#3b82f6;--blue-dim:rgba(59,130,246,0.12);
+  --cyan:#06b6d4;--green:#10b981;--green-dim:rgba(16,185,129,0.12);
+  --amber:#f59e0b;--red:#ef4444;--red-dim:rgba(239,68,68,0.12);
+  --text:#e2e8f0;--muted:#64748b;
+  --mono:'DM Mono',monospace;--sans:'Outfit',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow-x:hidden}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);padding-bottom:84px;min-height:100vh}
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(59,130,246,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,.03) 1px,transparent 1px);
+  background-size:32px 32px;pointer-events:none;z-index:0
+}
+.hdr{
+  position:sticky;top:0;z-index:200;
+  background:rgba(6,8,16,.94);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  padding:13px 18px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.logo{font-weight:900;font-size:18px;letter-spacing:-.5px;display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);box-shadow:0 0 12px var(--blue);animation:blink 2s ease infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.logo-sub{font-size:10px;color:var(--muted);letter-spacing:2px;font-weight:400;margin-left:2px}
+.chip{
+  font-family:var(--mono);font-size:10px;
+  background:var(--s2);border:1px solid var(--border2);
+  color:var(--muted);padding:5px 10px;border-radius:6px;cursor:pointer;transition:color .2s
+}
+.chip:active{color:var(--cyan)}
+
+.wbar{
+  margin:14px 16px;
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:14px;padding:14px 16px;
+  display:flex;align-items:center;gap:12px
+}
+.wico{width:40px;height:40px;border-radius:10px;background:var(--blue-dim);border:1px solid rgba(59,130,246,.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.winfo{flex:1}
+.wlbl{font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
+.waddr{font-family:var(--mono);font-size:13px;color:var(--text)}
+.cbtn{
+  background:var(--blue);color:#fff;border:none;border-radius:9px;
+  padding:9px 16px;font-family:var(--sans);font-weight:700;font-size:12px;
+  cursor:pointer;transition:all .2s;white-space:nowrap
+}
+.cbtn:active{transform:scale(.95);background:#2563eb}
+.cbtn.on{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+
+.srow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:0 16px 18px}
+.sc{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
+.sv{font-weight:700;font-size:22px;font-family:var(--mono);color:var(--text);line-height:1}
+.sv.b{color:var(--blue)}.sv.g{color:var(--green)}.sv.a{color:var(--amber)}
+.sl{font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-top:4px}
+
+.tabs{display:flex;gap:6px;padding:0 16px 16px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--s1);color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;cursor:pointer;transition:all .2s}
+.tab.active{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 0 16px rgba(59,130,246,.3)}
+.tab:active{transform:scale(.95)}
+
+.panel{display:none;padding:0 16px}
+.panel.active{display:block}
+
+.card{background:var(--s1);border:1px solid var(--border);border-radius:16px;margin-bottom:12px;overflow:hidden}
+.ch{padding:14px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.ct{font-weight:700;font-size:14px;color:var(--text)}
+.cb{padding:16px 18px}
+
+.dc{background:var(--s1);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden;transition:border-color .2s}
+.dc:active{border-color:var(--blue)}
+.dct{padding:14px 16px;display:flex;justify-content:space-between;align-items:flex-start}
+.did{font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px}
+.dv{font-weight:700;font-size:20px;color:var(--text)}
+.dv span{font-size:12px;color:var(--muted);font-weight:400;margin-left:4px}
+.das{padding:0 16px;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.ab{background:var(--s2);border-radius:8px;padding:8px 10px}
+.al{font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
+.av{font-family:var(--mono);font-size:11px;color:var(--text);margin-top:2px;word-break:break-all}
+.dac{padding:0 16px 14px;display:flex;gap:8px}
+
+.pill{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:4px 10px;border-radius:100px}
+.p0{background:rgba(100,116,139,.12);color:var(--muted);border:1px solid rgba(100,116,139,.2)}
+.p1{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.25)}
+.p2{background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.25)}
+.p3{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(59,130,246,.25)}
+.p4{background:rgba(100,116,139,.08);color:var(--muted);border:1px solid var(--border)}
+.p5{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.25);animation:fl 1.5s infinite}
+@keyframes fl{0%,100%{opacity:1}50%{opacity:.5}}
+
+.btn{flex:1;padding:10px 8px;border-radius:10px;border:none;font-family:var(--sans);font-weight:700;font-size:12px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:5px}
+.btn:active{transform:scale(.95)}
+.btn-b{background:var(--blue);color:#fff}
+.btn-b:active{box-shadow:0 0 16px rgba(59,130,246,.4)}
+.btn-g{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.25)}
+.btn-r{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.btn-x{background:var(--s2);color:var(--muted);border:1px solid var(--border)}
+.btn-a{background:rgba(245,158,11,.12);color:var(--amber);border:1px solid rgba(245,158,11,.25)}
+.btn-f{width:100%;padding:14px;border-radius:12px;font-size:13px}
+
+.field{margin-bottom:12px}
+.fl{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px}
+.inp{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;transition:border-color .2s}
+.inp:focus{border-color:var(--blue)}
+.inp::placeholder{color:var(--muted);font-size:12px}
+textarea.inp{min-height:80px;resize:none;line-height:1.6}
+.irow{display:flex;gap:8px}
+.irow .field{flex:1}
+
+.divider{height:1px;background:var(--border);margin:14px 0}
+.slbl{font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;padding:0 16px 10px}
+
+.ir{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)}
+.ir:last-child{border-bottom:none}
+.ik{font-size:12px;color:var(--muted)}
+.iv{font-family:var(--mono);font-size:12px;color:var(--text);text-align:right;max-width:62%;word-break:break-all}
+
+.overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.82);backdrop-filter:blur(10px);display:none;align-items:flex-end;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--s1);border:1px solid var(--border2);border-radius:22px 22px 0 0;padding:24px 20px 40px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;animation:up .28s cubic-bezier(.34,1.56,.64,1)}
+@keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mh{width:36px;height:4px;border-radius:100px;background:var(--border2);margin:0 auto 20px}
+.mt{font-weight:700;font-size:20px;margin-bottom:18px}
+
+.toast{position:fixed;top:76px;left:50%;transform:translateX(-50%);z-index:999;min-width:220px;max-width:88vw;padding:11px 18px;border-radius:12px;font-size:13px;font-weight:600;text-align:center;pointer-events:none;animation:tin .25s ease,tout .25s ease 2.6s forwards}
+@keyframes tin{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes tout{to{opacity:0;transform:translateX(-50%) translateY(-8px)}}
+.tok{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:var(--green)}
+.ter{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.tin{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:var(--blue)}
+
+.spin{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.1);border-top-color:var(--blue);animation:rot .7s linear infinite;display:inline-block}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+.bnav{position:fixed;bottom:0;left:0;right:0;z-index:300;background:rgba(6,8,16,.96);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;padding:10px 8px 24px;gap:2px}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 4px;border-radius:10px;cursor:pointer;transition:all .2s;color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+.ni.active{color:var(--blue);background:var(--blue-dim)}
+.ni:active{transform:scale(.9)}
+.ni-i{font-size:18px;line-height:1}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    DV<span style="color:var(--blue)">Swap</span>
+    <span class="logo-sub">AI ESCROW</span>
+  </div>
+  <div class="chip" onclick="copyAddr()" title="Copy contract address">0x96…f1e3</div>
+</div>
+
+<div class="wbar">
+  <div class="wico">👛</div>
+  <div class="winfo">
+    <div class="wlbl">Wallet</div>
+    <div class="waddr" id="wAddr">Not connected</div>
+  </div>
+  <button class="cbtn" id="cBtn" onclick="connectWallet()">Connect</button>
+</div>
+
+<div class="srow">
+  <div class="sc"><div class="sv b" id="sTotalDeals">—</div><div class="sl">Deals</div></div>
+  <div class="sc"><div class="sv g" id="sMyXP">—</div><div class="sl">My XP</div></div>
+  <div class="sc"><div class="sv a" id="sMyWins">—</div><div class="sl">Wins</div></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="tab('deals')">📋 Deals</div>
+  <div class="tab" onclick="tab('create')">＋ New</div>
+  <div class="tab" onclick="tab('lookup')">🔍 Info</div>
+  <div class="tab" onclick="tab('dispute')">⚡ Actions</div>
+  <div class="tab" onclick="tab('admin')">🔧 Admin</div>
+</div>
+
+<!-- DEALS -->
+<div class="panel active" id="panel-deals">
+  <div class="slbl">Load a deal</div>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <input class="inp" type="number" id="loadId" placeholder="Deal ID" style="flex:1;margin:0">
+    <button class="btn btn-b" style="flex:none;padding:10px 18px;border-radius:10px" onclick="loadDeal()">Load</button>
+  </div>
+  <div id="dealsList">
+    <div style="text-align:center;padding:40px 20px;color:var(--muted);font-size:12px">
+      <div style="font-size:36px;margin-bottom:12px;opacity:.3">📋</div>
+      Enter a deal ID above to load it
+    </div>
+  </div>
+</div>
+
+<!-- CREATE -->
+<div class="panel" id="panel-create">
+  <div class="card">
+    <div class="ch"><div class="ct">New Escrow Deal</div></div>
+    <div class="cb">
+      <div class="field"><div class="fl">Recipient Address</div><input class="inp" type="text" id="c_rec" placeholder="0x..."></div>
+      <div class="irow">
+        <div class="field"><div class="fl">Value (GEN)</div><input class="inp" type="number" id="c_val" placeholder="0.1" step="0.001"></div>
+        <div class="field"><div class="fl">Deposit (GEN)</div><input class="inp" type="number" id="c_dep" placeholder="0.1" step="0.001"></div>
+      </div>
+      <div class="field"><div class="fl">Off-chain Reference</div><input class="inp" type="text" id="c_ref" placeholder="ipfs://... or any note"></div>
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px">
+        <div class="ir" style="padding:6px 0"><span class="ik">Transform fee</span><span class="iv" style="color:var(--amber)">1% (100 bps)</span></div>
+        <div class="ir" style="padding:6px 0;border:none"><span class="ik">Value multiplier</span><span class="iv" style="color:var(--green)">1.0× (10000 bps)</span></div>
+      </div>
+      <button class="btn btn-b btn-f" onclick="createDeal()">Create Deal (payable)</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOOKUP -->
+<div class="panel" id="panel-lookup">
+  <div class="card">
+    <div class="ch"><div class="ct">Deal Info</div></div>
+    <div class="cb">
+      <div class="field"><div class="fl">Deal ID</div><input class="inp" type="number" id="l_did" placeholder="1"></div>
+      <button class="btn btn-b btn-f" onclick="lookupDeal()">Fetch Deal</button>
+      <div id="dealInfoWrap" style="display:none"><div class="divider"></div><div id="dealInfoRows"></div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ch"><div class="ct">Player Stats</div></div>
+    <div class="cb">
+      <div class="field"><div class="fl">Address</div><input class="inp" type="text" id="l_addr" placeholder="0x... (leave blank = you)"></div>
+      <button class="btn btn-x btn-f" onclick="lookupStats()">Fetch Stats</button>
+      <div id="statsWrap" style="display:none"><div class="divider"></div><div id="statsRows"></div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ch"><div class="ct">Contract Stats</div></div>
+    <div class="cb">
+      <button class="btn btn-x btn-f" onclick="fetchContractStats()">Fetch Global Stats</button>
+      <div id="cstatsWrap" style="display:none"><div class="divider"></div><div id="cstatsRows"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ACTIONS / DISPUTE -->
+<div class="panel" id="panel-dispute">
+  <div class="card">
+    <div class="ch"><div class="ct">Deal Actions</div></div>
+    <div class="cb">
+      <div class="field"><div class="fl">Deal ID</div><input class="inp" type="number" id="a_id" placeholder="1"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <button class="btn btn-g" onclick="act('activate_deal')">✅ Activate</button>
+        <button class="btn btn-x" onclick="act('cancel_inactive')">✕ Cancel</button>
+        <button class="btn btn-x" onclick="act('expire_deal')">⏱ Expire</button>
+        <button class="btn btn-b" onclick="act('finalize_to_stable')">→ Stable</button>
+      </div>
+      <div class="field" style="margin-top:4px"><div class="fl">NFT Metadata (JSON)</div><input class="inp" type="text" id="a_nft" placeholder='{"name":"...","image":"..."}' ></div>
+      <button class="btn btn-b btn-f" onclick="finalizeNFT()">→ NFT</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ch"><div class="ct">⚡ Open Dispute</div></div>
+    <div class="cb">
+      <div class="field"><div class="fl">Deal ID</div><input class="inp" type="number" id="d_oid" placeholder="1"></div>
+      <div class="field"><div class="fl">Reason</div><textarea class="inp" id="d_ors" placeholder="Describe the issue..."></textarea></div>
+      <button class="btn btn-r btn-f" onclick="openDispute()">Open Dispute</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ch"><div class="ct">🛡 Challenge Dispute</div></div>
+    <div class="cb">
+      <div class="field"><div class="fl">Deal ID</div><input class="inp" type="number" id="d_cid" placeholder="1"></div>
+      <div class="field"><div class="fl">Counter-Reason</div><textarea class="inp" id="d_crs" placeholder="Your counter-argument..."></textarea></div>
+      <button class="btn btn-a btn-f" onclick="challengeDispute()">Challenge</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div class="panel" id="panel-admin">
+  <div class="card">
+    <div class="ch"><div class="ct">⏱ Set Timeouts</div></div>
+    <div class="cb">
+      <div class="irow">
+        <div class="field"><div class="fl">Activation (s)</div><input class="inp" type="number" id="t_act" placeholder="0"></div>
+        <div class="field"><div class="fl">Finalization (s)</div><input class="inp" type="number" id="t_fin" placeholder="0"></div>
+      </div>
+      <div class="irow">
+        <div class="field"><div class="fl">Dispute (s)</div><input class="inp" type="number" id="t_dis" placeholder="0"></div>
+        <div class="field"><div class="fl">Min Delay (s)</div><input class="inp" type="number" id="t_del" placeholder="0"></div>
+      </div>
+      <button class="btn btn-x btn-f" onclick="setTimeouts()">Set Timeouts</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ch"><div class="ct">💰 Set Fees</div></div>
+    <div class="cb">
+      <div class="irow">
+        <div class="field"><div class="fl">Activation Fee</div><input class="inp" type="number" id="f_act" placeholder="0"></div>
+        <div class="field"><div class="fl">Transform (bps)</div><input class="inp" type="number" id="f_tf" placeholder="100"></div>
+        <div class="field"><div class="fl">Multiplier (bps)</div><input class="inp" type="number" id="f_mul" placeholder="10000"></div>
+      </div>
+      <button class="btn btn-x btn-f" onclick="setFees()">Set Fees</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ch"><div class="ct">📏 Set Max Value</div></div>
+    <div class="cb">
+      <div class="field"><div class="fl">Max Deal Value (wei, 0=unlimited)</div><input class="inp" type="number" id="lim_v" placeholder="0"></div>
+      <button class="btn btn-x btn-f" onclick="setLimits()">Set Limit</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ch"><div class="ct">🚫 Blacklist</div></div>
+    <div class="cb">
+      <div class="field"><div class="fl">Address</div><input class="inp" type="text" id="bl_addr" placeholder="0x..."></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-r" onclick="blacklist(1)">Blacklist</button>
+        <button class="btn btn-g" onclick="blacklist(0)">Remove</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ch"><div class="ct">⚖️ Resolve Dispute</div></div>
+    <div class="cb">
+      <div class="field"><div class="fl">Deal ID</div><input class="inp" type="number" id="r_id" placeholder="1"></div>
+      <div class="field"><div class="fl">Mode (0=none, 1=owner, 2=ai)</div><input class="inp" type="number" id="r_mode" placeholder="1"></div>
+      <div class="field"><div class="fl">Note</div><textarea class="inp" id="r_note" placeholder="Resolution note..."></textarea></div>
+      <button class="btn btn-a btn-f" onclick="resolveDispute()">Resolve</button>
+    </div>
+  </div>
+</div>
+
+<div class="bnav">
+  <div class="ni active" id="ni-deals" onclick="tab('deals')"><div class="ni-i">📋</div>Deals</div>
+  <div class="ni" id="ni-create" onclick="tab('create')"><div class="ni-i">➕</div>New</div>
+  <div class="ni" id="ni-lookup" onclick="tab('lookup')"><div class="ni-i">🔍</div>Info</div>
+  <div class="ni" id="ni-dispute" onclick="tab('dispute')"><div class="ni-i">⚡</div>Actions</div>
+  <div class="ni" id="ni-admin" onclick="tab('admin')"><div class="ni-i">🔧</div>Admin</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// CONTRACT CONFIG
+// ═══════════════════════════════════════════
+const CONTRACT_ADDR = "0x96...f1e3"; // ← Replace with full address after deploy
+const TX_HASH = "0x4d7964f95470595b20d3ffce74d7f8114670c17bb0b851f6e5bb6a6c4d17edb8";
+
+// GenLayer Studio API base
+const GL_API = "https://studio.genlayer.com/api";
+
+// State labels + pill classes
+const SL = {0:"INACTIVE",1:"ACTIVE",2:"FINAL_NFT",3:"FINAL_STABLE",4:"CANCELLED",5:"DISPUTED"};
+const SP = {0:"p0",1:"p1",2:"p2",3:"p3",4:"p4",5:"p5"};
+
+let myAddr = null;
+
+// ═══════════════════════════════════════════
+// WALLET
+// ═══════════════════════════════════════════
+async function connectWallet() {
+  if (myAddr) {
+    myAddr = null;
+    g('wAddr').textContent = 'Not connected';
+    g('cBtn').textContent = 'Connect';
+    g('cBtn').className = 'cbtn';
+    ['sTotalDeals','sMyXP','sMyWins'].forEach(id => g(id).textContent = '—');
+    return;
+  }
+  if (!window.ethereum) { toast('No wallet detected. Install MetaMask.', 'er'); return; }
+  try {
+    g('cBtn').innerHTML = '<span class="spin"></span>';
+    const accs = await ethereum.request({method:'eth_requestAccounts'});
+    myAddr = accs[0];
+    g('wAddr').textContent = short(myAddr);
+    g('cBtn').textContent = 'Disconnect';
+    g('cBtn').className = 'cbtn on';
+    toast('Connected ✓', 'ok');
+    await Promise.all([loadMyStats(), loadGlobalStats()]);
+  } catch(e) {
+    g('cBtn').textContent = 'Connect';
+    toast('Rejected', 'er');
+  }
+}
+
+window.ethereum?.on('accountsChanged', accs => {
+  if (!accs.length) { myAddr=null; g('wAddr').textContent='Not connected'; g('cBtn').textContent='Connect'; g('cBtn').className='cbtn'; }
+  else { myAddr=accs[0]; g('wAddr').textContent=short(myAddr); loadMyStats(); }
+});
+
+// ═══════════════════════════════════════════
+// GENLAYER RPC
+// GenLayer uses its own JSON-RPC over HTTP.
+// Read = gen_call (no wallet needed)
+// Write = eth_sendTransaction through MetaMask (EVM-compatible)
+// The `data` field carries the method name + args as ABI or JSON depending on the runtime.
+// ═══════════════════════════════════════════
+async function glRead(method, args = {}) {
+  try {
+    const res = await fetch(GL_API, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        jsonrpc: "2.0", id: 1,
+        method: "gen_call",
+        params: [{to: CONTRACT_ADDR, data: JSON.stringify({method, args})}, "latest"]
+      })
+    });
+    const json = await res.json();
+    if (json.error) throw new Error(json.error.message);
+    return json.result;
+  } catch(e) {
+    console.warn('glRead failed:', e.message);
+    return null;
+  }
+}
+
+async function glWrite(method, args = {}, valueGEN = 0) {
+  if (!myAddr) { toast('Connect wallet first', 'er'); return null; }
+  if (!window.ethereum) { toast('No wallet', 'er'); return null; }
+  try {
+    // Encode as hex for EVM tx data field
+    const data = JSON.stringify({method, args});
+    const hexData = '0x' + Array.from(new TextEncoder().encode(data)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    const valueWei = valueGEN > 0 ? '0x'+BigInt(Math.round(valueGEN * 1e18)).toString(16) : '0x0';
+    const txHash = await ethereum.request({
+      method: 'eth_sendTransaction',
+      params: [{from: myAddr, to: CONTRACT_ADDR, data: hexData, value: valueWei}]
+    });
+    toast('Tx: ' + txHash.slice(0,14)+'…', 'ok');
+    return txHash;
+  } catch(e) {
+    toast(e.message?.slice(0,64) || 'Tx failed', 'er');
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════
+async function loadMyStats() {
+  if (!myAddr) return;
+  const d = await glRead('get_stats', {addr_hex: myAddr});
+  g('sMyXP').textContent = d?.xp ?? '—';
+  g('sMyWins').textContent = d?.wins ?? '—';
+}
+
+async function loadGlobalStats() {
+  const d = await glRead('get_contract_stats', {});
+  g('sTotalDeals').textContent = d?.total_deals ?? '—';
+}
+
+// ═══════════════════════════════════════════
+// CREATE DEAL
+// ═══════════════════════════════════════════
+async function createDeal() {
+  const recipient = g('c_rec').value.trim();
+  const value = parseFloat(g('c_val').value) || 0;
+  const deposit = parseFloat(g('c_dep').value) || 0;
+  const ref = g('c_ref').value.trim();
+  if (!recipient) { toast('Enter recipient', 'er'); return; }
+  if (deposit <= 0) { toast('Deposit must be > 0', 'er'); return; }
+  toast('Creating deal…', 'in');
+  const tx = await glWrite('create_deal',
+    {recipient_hex: recipient, value: Math.round(value * 1e18), offchain_ref: ref},
+    deposit
+  );
+  if (tx) {
+    ['c_rec','c_val','c_dep','c_ref'].forEach(id => g(id).value='');
+    toast('Deal created ✓', 'ok');
+    await loadGlobalStats();
+  }
+}
+
+// ═══════════════════════════════════════════
+// DEAL ACTIONS (single ID field)
+// ═══════════════════════════════════════════
+async function act(method) {
+  const id = parseInt(g('a_id').value);
+  if (!id) { toast('Enter deal ID', 'er'); return; }
+  const labels = {activate_deal:'Activating',cancel_inactive:'Cancelling',expire_deal:'Expiring',finalize_to_stable:'Finalizing → Stable'};
+  toast(labels[method]+'…', 'in');
+  await glWrite(method, {deal_id_int: id});
+}
+
+async function finalizeNFT() {
+  const id = parseInt(g('a_id').value);
+  const meta = g('a_nft').value.trim();
+  if (!id) { toast('Enter deal ID', 'er'); return; }
+  if (!meta) { toast('Enter NFT metadata JSON', 'er'); return; }
+  toast('Finalizing → NFT…', 'in');
+  await glWrite('finalize_to_nft', {deal_id_int: id, metadata: meta});
+}
+
+async function openDispute() {
+  const id = parseInt(g('d_oid').value);
+  const reason = g('d_ors').value.trim();
+  if (!id || !reason) { toast('Fill all fields', 'er'); return; }
+  toast('Opening dispute…', 'in');
+  await glWrite('open_dispute', {deal_id_int: id, reason});
+}
+
+async function challengeDispute() {
+  const id = parseInt(g('d_cid').value);
+  const reason = g('d_crs').value.trim();
+  if (!id || !reason) { toast('Fill all fields', 'er'); return; }
+  toast('Challenging…', 'in');
+  await glWrite('challenge_dispute', {deal_id_int: id, reason});
+}
+
+// ═══════════════════════════════════════════
+// ADMIN
+// ═══════════════════════════════════════════
+async function setTimeouts() {
+  toast('Setting timeouts…', 'in');
+  await glWrite('set_timeouts', {
+    activation_period: parseInt(g('t_act').value)||0,
+    finalization_period: parseInt(g('t_fin').value)||0,
+    dispute_period: parseInt(g('t_dis').value)||0,
+    min_delay: parseInt(g('t_del').value)||0
+  });
+}
+
+async function setFees() {
+  toast('Setting fees…', 'in');
+  await glWrite('set_fees', {
+    activation_fee: parseInt(g('f_act').value)||0,
+    transform_fee_bps: parseInt(g('f_tf').value)||100,
+    multiplier_bps: parseInt(g('f_mul').value)||10000
+  });
+}
+
+async function setLimits() {
+  toast('Setting limits…', 'in');
+  await glWrite('set_limits', {max_value: parseInt(g('lim_v').value)||0});
+}
+
+async function blacklist(flag) {
+  const addr = g('bl_addr').value.trim();
+  if (!addr) { toast('Enter address', 'er'); return; }
+  toast(flag ? 'Blacklisting…' : 'Removing…', 'in');
+  await glWrite('blacklist', {addr_hex: addr, flag});
+}
+
+async function resolveDispute() {
+  const id = parseInt(g('r_id').value);
+  if (!id) { toast('Enter deal ID', 'er'); return; }
+  toast('Resolving…', 'in');
+  await glWrite('resolve_dispute', {
+    deal_id_int: id,
+    mode: parseInt(g('r_mode').value)||1,
+    note: g('r_note').value.trim()
+  });
+}
+
+// ═══════════════════════════════════════════
+// LOOKUP
+// ═══════════════════════════════════════════
+async function loadDeal() {
+  const id = parseInt(g('loadId').value);
+  if (!id) { toast('Enter deal ID', 'er'); return; }
+  toast('Loading…', 'in');
+  const d = await glRead('get_deal_info', {deal_id_int: id});
+
+  const list = g('dealsList');
+  const ex = document.getElementById('dc-'+id);
+  if (ex) ex.remove();
+
+  const sn = d ? parseInt(d.state) : 0;
+  const card = document.createElement('div');
+  card.className = 'dc'; card.id = 'dc-'+id;
+  card.innerHTML = `
+    <div class="dct">
+      <div>
+        <div class="did">DEAL #${id}</div>
+        <div class="dv">${d ? fmtGEN(d.current_value) : '—'}<span>GEN</span></div>
+      </div>
+      <span class="pill ${SP[sn]||'p0'}">${SL[sn]||'?'}</span>
+    </div>
+    ${d ? `<div class="das">
+      <div class="ab"><div class="al">Sender</div><div class="av">${short(d.sender)}</div></div>
+      <div class="ab"><div class="al">Recipient</div><div class="av">${short(d.recipient)}</div></div>
+      <div class="ab"><div class="al">Initial</div><div class="av">${fmtGEN(d.initial_value)} GEN</div></div>
+      <div class="ab"><div class="al">Ref</div><div class="av" style="font-size:10px">${d.offchain_ref||'—'}</div></div>
+    </div>` : `<div style="padding:0 16px 14px;color:var(--muted);font-size:12px">No live node — deal not loaded</div>`}
+    <div class="dac">
+      <button class="btn btn-g" onclick="quickAct('activate_deal',${id})">Activate</button>
+      <button class="btn btn-b" onclick="quickAct('finalize_to_stable',${id})">→ Stable</button>
+      <button class="btn btn-r" onclick="quickDispute(${id})">Dispute</button>
+    </div>
+  `;
+  list.innerHTML = '';
+  list.appendChild(card);
+  toast(d ? `Deal #${id} loaded ✓` : `Loaded (mock — no live node)`, d ? 'ok' : 'in');
+}
+
+async function lookupDeal() {
+  const id = parseInt(g('l_did').value);
+  if (!id) { toast('Enter deal ID', 'er'); return; }
+  toast('Fetching…', 'in');
+  const d = await glRead('get_deal_info', {deal_id_int: id});
+  const wrap = g('dealInfoWrap'); wrap.style.display='block';
+  if (!d) { g('dealInfoRows').innerHTML = noNode(); return; }
+  const sn = parseInt(d.state);
+  g('dealInfoRows').innerHTML = rows([
+    ['ID', d.id],
+    ['State', `<span class="pill ${SP[sn]||'p0'}">${SL[sn]||d.state}</span>`],
+    ['Sender', short(d.sender)],
+    ['Recipient', short(d.recipient)],
+    ['Initial', fmtGEN(d.initial_value)+' GEN'],
+    ['Current', fmtGEN(d.current_value)+' GEN'],
+    ['Created', fmtTs(d.created_at)],
+    ['Activated', fmtTs(d.activated_at)],
+    ['Finalized', fmtTs(d.finalized_at)],
+    ['Dispute', d.dispute_open==='1' ? '⚡ Open' : 'None'],
+    ['Claim by', d.claim_by && d.claim_by!=='0x0000000000000000000000000000000000000000' ? short(d.claim_by) : '—'],
+    ['Challenge by', d.challenge_by && d.challenge_by!=='0x0000000000000000000000000000000000000000' ? short(d.challenge_by) : '—'],
+    ['NFT Meta', d.nft_metadata||'—'],
+    ['Ref', d.offchain_ref||'—'],
+  ]);
+}
+
+async function lookupStats() {
+  const addr = g('l_addr').value.trim() || myAddr;
+  if (!addr) { toast('Enter address or connect wallet', 'er'); return; }
+  toast('Fetching…', 'in');
+  const d = await glRead('get_stats', {addr_hex: addr});
+  const wrap = g('statsWrap'); wrap.style.display='block';
+  if (!d) { g('statsRows').innerHTML = noNode(); return; }
+  g('statsRows').innerHTML = rows([
+    ['XP', `<span style="color:var(--green);font-weight:700">${d.xp}</span>`],
+    ['Wins', `<span style="color:var(--amber);font-weight:700">${d.wins}</span>`],
+  ]);
+}
+
+async function fetchContractStats() {
+  toast('Fetching…', 'in');
+  const d = await glRead('get_contract_stats', {});
+  const wrap = g('cstatsWrap'); wrap.style.display='block';
+  if (!d) { g('cstatsRows').innerHTML = noNode(); return; }
+  g('sTotalDeals').textContent = d.total_deals;
+  g('cstatsRows').innerHTML = rows([
+    ['Total Deals', d.total_deals],
+    ['Protocol Fees (wei)', d.protocol_fees],
+    ['Owner', short(d.owner)],
+    ['Deploy Tx', TX_HASH.slice(0,16)+'…'],
+  ]);
+}
+
+function quickAct(method, id) {
+  toast(method.replace(/_/g,' ')+'…', 'in');
+  g('a_id').value = id;
+  glWrite(method, {deal_id_int: id});
+}
+function quickDispute(id) {
+  g('d_oid').value = id;
+  tab('dispute');
+  toast('Fill in your reason', 'in');
+}
+
+// ═══════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════
+function g(id) { return document.getElementById(id); }
+function short(addr) {
+  if (!addr || addr==='0x0000000000000000000000000000000000000000') return '—';
+  return addr.slice(0,8)+'…'+addr.slice(-6);
+}
+function fmtGEN(wei) {
+  if (!wei || wei==='0') return '0';
+  try { return (Number(BigInt(wei))/1e18).toFixed(4); } catch { return wei; }
+}
+function fmtTs(ts) {
+  if (!ts || ts==='0') return '—';
+  try { return new Date(Number(ts)*1000).toLocaleString(); } catch { return ts; }
+}
+function rows(pairs) {
+  return pairs.map(([k,v])=>`<div class="ir"><span class="ik">${k}</span><span class="iv">${v}</span></div>`).join('');
+}
+function noNode() {
+  return '<div style="color:var(--muted);font-size:12px;padding:8px 0">⚠️ Could not reach GenLayer node. Check RPC or use GenLayer Studio directly.</div>';
+}
+
+function tab(name) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  g('panel-'+name).classList.add('active');
+  document.querySelector(`.tab[onclick="tab('${name}')"]`).classList.add('active');
+  g('ni-'+name).classList.add('active');
+}
+
+function copyAddr() {
+  navigator.clipboard?.writeText(CONTRACT_ADDR);
+  toast('Contract address copied', 'ok');
+}
+
+function toast(msg, type='in') {
+  document.querySelectorAll('.toast').forEach(t=>t.remove());
+  const t = document.createElement('div');
+  const cls = {ok:'tok',er:'ter',in:'tin'}[type]||'tin';
+  t.className = `toast ${cls}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 3200);
+}
+</script>
+</body>
+</html>
