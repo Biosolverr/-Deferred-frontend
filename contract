@@ -160,7 +160,7 @@ textarea.inp{min-height:80px;resize:none;line-height:1.6}
     DV<span style="color:var(--blue)">Swap</span>
     <span class="logo-sub">AI ESCROW</span>
   </div>
-  <div class="chip" onclick="copyAddr()" title="Copy contract address">0x9604…f1e3</div>
+  <div class="chip" onclick="copyAddr()" title="Copy contract address">0x96…f1e3</div>
 </div>
 
 <div class="wbar">
@@ -347,9 +347,9 @@ textarea.inp{min-height:80px;resize:none;line-height:1.6}
 
 <script>
 // ═══════════════════════════════════════════
-// CONTRACT CONFIG — REAL ADDRESS INSERTED
+// CONTRACT CONFIG
 // ═══════════════════════════════════════════
-const CONTRACT_ADDR = "0x96045324BceB775661C4AfD13B6FBA1198AAf1e3";
+const CONTRACT_ADDR = "0x96...f1e3"; // ← Replace with full address after deploy
 const TX_HASH = "0x4d7964f95470595b20d3ffce74d7f8114670c17bb0b851f6e5bb6a6c4d17edb8";
 
 // GenLayer Studio API base
@@ -466,4 +466,250 @@ async function createDeal() {
   const ref = g('c_ref').value.trim();
   if (!recipient) { toast('Enter recipient', 'er'); return; }
   if (deposit <= 0) { toast('Deposit must be > 0', 'er'); return; }
- 
+  toast('Creating deal…', 'in');
+  const tx = await glWrite('create_deal',
+    {recipient_hex: recipient, value: Math.round(value * 1e18), offchain_ref: ref},
+    deposit
+  );
+  if (tx) {
+    ['c_rec','c_val','c_dep','c_ref'].forEach(id => g(id).value='');
+    toast('Deal created ✓', 'ok');
+    await loadGlobalStats();
+  }
+}
+
+// ═══════════════════════════════════════════
+// DEAL ACTIONS (single ID field)
+// ═══════════════════════════════════════════
+async function act(method) {
+  const id = parseInt(g('a_id').value);
+  if (!id) { toast('Enter deal ID', 'er'); return; }
+  const labels = {activate_deal:'Activating',cancel_inactive:'Cancelling',expire_deal:'Expiring',finalize_to_stable:'Finalizing → Stable'};
+  toast(labels[method]+'…', 'in');
+  await glWrite(method, {deal_id_int: id});
+}
+
+async function finalizeNFT() {
+  const id = parseInt(g('a_id').value);
+  const meta = g('a_nft').value.trim();
+  if (!id) { toast('Enter deal ID', 'er'); return; }
+  if (!meta) { toast('Enter NFT metadata JSON', 'er'); return; }
+  toast('Finalizing → NFT…', 'in');
+  await glWrite('finalize_to_nft', {deal_id_int: id, metadata: meta});
+}
+
+async function openDispute() {
+  const id = parseInt(g('d_oid').value);
+  const reason = g('d_ors').value.trim();
+  if (!id || !reason) { toast('Fill all fields', 'er'); return; }
+  toast('Opening dispute…', 'in');
+  await glWrite('open_dispute', {deal_id_int: id, reason});
+}
+
+async function challengeDispute() {
+  const id = parseInt(g('d_cid').value);
+  const reason = g('d_crs').value.trim();
+  if (!id || !reason) { toast('Fill all fields', 'er'); return; }
+  toast('Challenging…', 'in');
+  await glWrite('challenge_dispute', {deal_id_int: id, reason});
+}
+
+// ═══════════════════════════════════════════
+// ADMIN
+// ═══════════════════════════════════════════
+async function setTimeouts() {
+  toast('Setting timeouts…', 'in');
+  await glWrite('set_timeouts', {
+    activation_period: parseInt(g('t_act').value)||0,
+    finalization_period: parseInt(g('t_fin').value)||0,
+    dispute_period: parseInt(g('t_dis').value)||0,
+    min_delay: parseInt(g('t_del').value)||0
+  });
+}
+
+async function setFees() {
+  toast('Setting fees…', 'in');
+  await glWrite('set_fees', {
+    activation_fee: parseInt(g('f_act').value)||0,
+    transform_fee_bps: parseInt(g('f_tf').value)||100,
+    multiplier_bps: parseInt(g('f_mul').value)||10000
+  });
+}
+
+async function setLimits() {
+  toast('Setting limits…', 'in');
+  await glWrite('set_limits', {max_value: parseInt(g('lim_v').value)||0});
+}
+
+async function blacklist(flag) {
+  const addr = g('bl_addr').value.trim();
+  if (!addr) { toast('Enter address', 'er'); return; }
+  toast(flag ? 'Blacklisting…' : 'Removing…', 'in');
+  await glWrite('blacklist', {addr_hex: addr, flag});
+}
+
+async function resolveDispute() {
+  const id = parseInt(g('r_id').value);
+  if (!id) { toast('Enter deal ID', 'er'); return; }
+  toast('Resolving…', 'in');
+  await glWrite('resolve_dispute', {
+    deal_id_int: id,
+    mode: parseInt(g('r_mode').value)||1,
+    note: g('r_note').value.trim()
+  });
+}
+
+// ═══════════════════════════════════════════
+// LOOKUP
+// ═══════════════════════════════════════════
+async function loadDeal() {
+  const id = parseInt(g('loadId').value);
+  if (!id) { toast('Enter deal ID', 'er'); return; }
+  toast('Loading…', 'in');
+  const d = await glRead('get_deal_info', {deal_id_int: id});
+
+  const list = g('dealsList');
+  const ex = document.getElementById('dc-'+id);
+  if (ex) ex.remove();
+
+  const sn = d ? parseInt(d.state) : 0;
+  const card = document.createElement('div');
+  card.className = 'dc'; card.id = 'dc-'+id;
+  card.innerHTML = `
+    <div class="dct">
+      <div>
+        <div class="did">DEAL #${id}</div>
+        <div class="dv">${d ? fmtGEN(d.current_value) : '—'}<span>GEN</span></div>
+      </div>
+      <span class="pill ${SP[sn]||'p0'}">${SL[sn]||'?'}</span>
+    </div>
+    ${d ? `<div class="das">
+      <div class="ab"><div class="al">Sender</div><div class="av">${short(d.sender)}</div></div>
+      <div class="ab"><div class="al">Recipient</div><div class="av">${short(d.recipient)}</div></div>
+      <div class="ab"><div class="al">Initial</div><div class="av">${fmtGEN(d.initial_value)} GEN</div></div>
+      <div class="ab"><div class="al">Ref</div><div class="av" style="font-size:10px">${d.offchain_ref||'—'}</div></div>
+    </div>` : `<div style="padding:0 16px 14px;color:var(--muted);font-size:12px">No live node — deal not loaded</div>`}
+    <div class="dac">
+      <button class="btn btn-g" onclick="quickAct('activate_deal',${id})">Activate</button>
+      <button class="btn btn-b" onclick="quickAct('finalize_to_stable',${id})">→ Stable</button>
+      <button class="btn btn-r" onclick="quickDispute(${id})">Dispute</button>
+    </div>
+  `;
+  list.innerHTML = '';
+  list.appendChild(card);
+  toast(d ? `Deal #${id} loaded ✓` : `Loaded (mock — no live node)`, d ? 'ok' : 'in');
+}
+
+async function lookupDeal() {
+  const id = parseInt(g('l_did').value);
+  if (!id) { toast('Enter deal ID', 'er'); return; }
+  toast('Fetching…', 'in');
+  const d = await glRead('get_deal_info', {deal_id_int: id});
+  const wrap = g('dealInfoWrap'); wrap.style.display='block';
+  if (!d) { g('dealInfoRows').innerHTML = noNode(); return; }
+  const sn = parseInt(d.state);
+  g('dealInfoRows').innerHTML = rows([
+    ['ID', d.id],
+    ['State', `<span class="pill ${SP[sn]||'p0'}">${SL[sn]||d.state}</span>`],
+    ['Sender', short(d.sender)],
+    ['Recipient', short(d.recipient)],
+    ['Initial', fmtGEN(d.initial_value)+' GEN'],
+    ['Current', fmtGEN(d.current_value)+' GEN'],
+    ['Created', fmtTs(d.created_at)],
+    ['Activated', fmtTs(d.activated_at)],
+    ['Finalized', fmtTs(d.finalized_at)],
+    ['Dispute', d.dispute_open==='1' ? '⚡ Open' : 'None'],
+    ['Claim by', d.claim_by && d.claim_by!=='0x0000000000000000000000000000000000000000' ? short(d.claim_by) : '—'],
+    ['Challenge by', d.challenge_by && d.challenge_by!=='0x0000000000000000000000000000000000000000' ? short(d.challenge_by) : '—'],
+    ['NFT Meta', d.nft_metadata||'—'],
+    ['Ref', d.offchain_ref||'—'],
+  ]);
+}
+
+async function lookupStats() {
+  const addr = g('l_addr').value.trim() || myAddr;
+  if (!addr) { toast('Enter address or connect wallet', 'er'); return; }
+  toast('Fetching…', 'in');
+  const d = await glRead('get_stats', {addr_hex: addr});
+  const wrap = g('statsWrap'); wrap.style.display='block';
+  if (!d) { g('statsRows').innerHTML = noNode(); return; }
+  g('statsRows').innerHTML = rows([
+    ['XP', `<span style="color:var(--green);font-weight:700">${d.xp}</span>`],
+    ['Wins', `<span style="color:var(--amber);font-weight:700">${d.wins}</span>`],
+  ]);
+}
+
+async function fetchContractStats() {
+  toast('Fetching…', 'in');
+  const d = await glRead('get_contract_stats', {});
+  const wrap = g('cstatsWrap'); wrap.style.display='block';
+  if (!d) { g('cstatsRows').innerHTML = noNode(); return; }
+  g('sTotalDeals').textContent = d.total_deals;
+  g('cstatsRows').innerHTML = rows([
+    ['Total Deals', d.total_deals],
+    ['Protocol Fees (wei)', d.protocol_fees],
+    ['Owner', short(d.owner)],
+    ['Deploy Tx', TX_HASH.slice(0,16)+'…'],
+  ]);
+}
+
+function quickAct(method, id) {
+  toast(method.replace(/_/g,' ')+'…', 'in');
+  g('a_id').value = id;
+  glWrite(method, {deal_id_int: id});
+}
+function quickDispute(id) {
+  g('d_oid').value = id;
+  tab('dispute');
+  toast('Fill in your reason', 'in');
+}
+
+// ═══════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════
+function g(id) { return document.getElementById(id); }
+function short(addr) {
+  if (!addr || addr==='0x0000000000000000000000000000000000000000') return '—';
+  return addr.slice(0,8)+'…'+addr.slice(-6);
+}
+function fmtGEN(wei) {
+  if (!wei || wei==='0') return '0';
+  try { return (Number(BigInt(wei))/1e18).toFixed(4); } catch { return wei; }
+}
+function fmtTs(ts) {
+  if (!ts || ts==='0') return '—';
+  try { return new Date(Number(ts)*1000).toLocaleString(); } catch { return ts; }
+}
+function rows(pairs) {
+  return pairs.map(([k,v])=>`<div class="ir"><span class="ik">${k}</span><span class="iv">${v}</span></div>`).join('');
+}
+function noNode() {
+  return '<div style="color:var(--muted);font-size:12px;padding:8px 0">⚠️ Could not reach GenLayer node. Check RPC or use GenLayer Studio directly.</div>';
+}
+
+function tab(name) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  g('panel-'+name).classList.add('active');
+  document.querySelector(`.tab[onclick="tab('${name}')"]`).classList.add('active');
+  g('ni-'+name).classList.add('active');
+}
+
+function copyAddr() {
+  navigator.clipboard?.writeText(CONTRACT_ADDR);
+  toast('Contract address copied', 'ok');
+}
+
+function toast(msg, type='in') {
+  document.querySelectorAll('.toast').forEach(t=>t.remove());
+  const t = document.createElement('div');
+  const cls = {ok:'tok',er:'ter',in:'tin'}[type]||'tin';
+  t.className = `toast ${cls}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 3200);
+}
+</script>
+</body>
+</html>
